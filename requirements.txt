@@ -1,8 +1,8 @@
 # gradio
 gradio>=5.0.0
-accelerate>=0.26.0
+#accelerate>=0.26.0
 socksio
-qwen_vl_utils
+#qwen_vl_utils
 loguru
 dashscope
 #flash_attn   
