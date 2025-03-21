@@ -1,0 +1,23 @@
+GET http://192.168.100.100:8188/ HTTP/1.1
+# content-type: application/json
+
+# {
+#     "name": "sample",
+#     "time": "Wed, 21 Oct 2015 18:27:50 GMT"
+# }
+
+GET http://192.168.100.100:8188/prompt HTTP/1.1
+content-type: application/json
+
+POST http://192.168.100.100:8188/interrupt  HTTP/1.1
+content-type: application/json
+
+POST http://192.168.100.100:8188/free  HTTP/1.1
+content-type: application/json
+
+{
+    "unload_models": true,
+    "free_memory": true
+}
+
+

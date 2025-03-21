@@ -1,0 +1,11 @@
+version: '3.4'
+
+services:
+  comfygradio:
+    image: comfygradio
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    command: ["sh", "-c", "pip install debugpy -t /tmp && python /tmp/debugpy --wait-for-client --listen 0.0.0.0:7860 i2v_14B_singleGPU.py "]
+    ports:
+      - 7860:7860
