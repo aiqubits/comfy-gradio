@@ -26,4 +26,5 @@ USER appuser
 EXPOSE 7860
 
 # During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
-CMD ["python", "i2v_14B_singleGPU.py"]
+ENTRYPOINT ["python", "i2v_14B_singleGPU.py"]
+#CMD ["DASH_API_KEY=sk-xxxxxxx", "python", "i2v_14B_singleGPU.py", "--prompt_extend_method", "dashscope"]

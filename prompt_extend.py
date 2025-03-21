@@ -7,18 +7,18 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import Optional, Union
+from typing import Union
 
 import dashscope
-import torch
+# import torch
 from PIL import Image
 
-try:
-    from flash_attn import flash_attn_varlen_func
-    FLASH_VER = 2
-except ModuleNotFoundError:
-    flash_attn_varlen_func = None  # in compatible with CPU machines
-    FLASH_VER = None
+# try:
+#     from flash_attn import flash_attn_varlen_func
+#     FLASH_VER = 2
+# except ModuleNotFoundError:
+#     flash_attn_varlen_func = None  # in compatible with CPU machines
+#     FLASH_VER = None
 
 LM_ZH_SYS_PROMPT = \
     '''你是一位Prompt优化师，旨在将用户输入改写为优质Prompt，使其更完整、更具表现力，同时不改变原意。\n''' \
@@ -297,163 +297,163 @@ class DashScopePromptExpander(PromptExpander):
                 response, ensure_ascii=False))
 
 
-class QwenPromptExpander(PromptExpander):
-    model_dict = {
-        "QwenVL2.5_3B": "Qwen/Qwen2.5-VL-3B-Instruct",
-        "QwenVL2.5_7B": "Qwen/Qwen2.5-VL-7B-Instruct",
-        "Qwen2.5_3B": "Qwen/Qwen2.5-3B-Instruct",
-        "Qwen2.5_7B": "Qwen/Qwen2.5-7B-Instruct",
-        "Qwen2.5_14B": "Qwen/Qwen2.5-14B-Instruct",
-    }
+# class QwenPromptExpander(PromptExpander):
+#     model_dict = {
+#         "QwenVL2.5_3B": "Qwen/Qwen2.5-VL-3B-Instruct",
+#         "QwenVL2.5_7B": "Qwen/Qwen2.5-VL-7B-Instruct",
+#         "Qwen2.5_3B": "Qwen/Qwen2.5-3B-Instruct",
+#         "Qwen2.5_7B": "Qwen/Qwen2.5-7B-Instruct",
+#         "Qwen2.5_14B": "Qwen/Qwen2.5-14B-Instruct",
+#     }
 
-    def __init__(self, model_name=None, device=0, is_vl=False, **kwargs):
-        '''
-        Args:
-            model_name: Use predefined model names such as 'QwenVL2.5_7B' and 'Qwen2.5_14B',
-                which are specific versions of the Qwen model. Alternatively, you can use the
-                local path to a downloaded model or the model name from Hugging Face."
-              Detailed Breakdown:
-                Predefined Model Names:
-                * 'QwenVL2.5_7B' and 'Qwen2.5_14B' are specific versions of the Qwen model.
-                Local Path:
-                * You can provide the path to a model that you have downloaded locally.
-                Hugging Face Model Name:
-                * You can also specify the model name from Hugging Face's model hub.
-            is_vl: A flag indicating whether the task involves visual-language processing.
-            **kwargs: Additional keyword arguments that can be passed to the function or method.
-        '''
-        if model_name is None:
-            model_name = 'Qwen2.5_14B' if not is_vl else 'QwenVL2.5_7B'
-        super().__init__(model_name, is_vl, device, **kwargs)
-        if (not os.path.exists(self.model_name)) and (self.model_name
-                                                      in self.model_dict):
-            self.model_name = self.model_dict[self.model_name]
+#     def __init__(self, model_name=None, device=0, is_vl=False, **kwargs):
+#         '''
+#         Args:
+#             model_name: Use predefined model names such as 'QwenVL2.5_7B' and 'Qwen2.5_14B',
+#                 which are specific versions of the Qwen model. Alternatively, you can use the
+#                 local path to a downloaded model or the model name from Hugging Face."
+#               Detailed Breakdown:
+#                 Predefined Model Names:
+#                 * 'QwenVL2.5_7B' and 'Qwen2.5_14B' are specific versions of the Qwen model.
+#                 Local Path:
+#                 * You can provide the path to a model that you have downloaded locally.
+#                 Hugging Face Model Name:
+#                 * You can also specify the model name from Hugging Face's model hub.
+#             is_vl: A flag indicating whether the task involves visual-language processing.
+#             **kwargs: Additional keyword arguments that can be passed to the function or method.
+#         '''
+#         if model_name is None:
+#             model_name = 'Qwen2.5_14B' if not is_vl else 'QwenVL2.5_7B'
+#         super().__init__(model_name, is_vl, device, **kwargs)
+#         if (not os.path.exists(self.model_name)) and (self.model_name
+#                                                       in self.model_dict):
+#             self.model_name = self.model_dict[self.model_name]
 
-        if self.is_vl:
-            # default: Load the model on the available device(s)
-            from transformers import (AutoProcessor, AutoTokenizer,
-                                      Qwen2_5_VLForConditionalGeneration)
-            try:
-                from .qwen_vl_utils import process_vision_info
-            except:
-                from qwen_vl_utils import process_vision_info
-            self.process_vision_info = process_vision_info
-            min_pixels = 256 * 28 * 28
-            max_pixels = 1280 * 28 * 28
-            self.processor = AutoProcessor.from_pretrained(
-                self.model_name,
-                min_pixels=min_pixels,
-                max_pixels=max_pixels,
-                use_fast=True)
-            self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                self.model_name,
-                torch_dtype=torch.bfloat16 if FLASH_VER == 2 else
-                torch.float16 if "AWQ" in self.model_name else "auto",
-                attn_implementation="flash_attention_2"
-                if FLASH_VER == 2 else None,
-                device_map="cpu")
-        else:
-            from transformers import AutoModelForCausalLM, AutoTokenizer
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.model_name,
-                torch_dtype=torch.float16
-                if "AWQ" in self.model_name else "auto",
-                attn_implementation="flash_attention_2"
-                if FLASH_VER == 2 else None,
-                device_map="cpu")
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+#         if self.is_vl:
+#             # default: Load the model on the available device(s)
+#             from transformers import (AutoProcessor, AutoTokenizer,
+#                                       Qwen2_5_VLForConditionalGeneration)
+#             try:
+#                 from .qwen_vl_utils import process_vision_info
+#             except:
+#                 from qwen_vl_utils import process_vision_info
+#             self.process_vision_info = process_vision_info
+#             min_pixels = 256 * 28 * 28
+#             max_pixels = 1280 * 28 * 28
+#             self.processor = AutoProcessor.from_pretrained(
+#                 self.model_name,
+#                 min_pixels=min_pixels,
+#                 max_pixels=max_pixels,
+#                 use_fast=True)
+#             self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+#                 self.model_name,
+#                 torch_dtype=torch.bfloat16 if FLASH_VER == 2 else
+#                 torch.float16 if "AWQ" in self.model_name else "auto",
+#                 attn_implementation="flash_attention_2"
+#                 if FLASH_VER == 2 else None,
+#                 device_map="cpu")
+#         else:
+#             from transformers import AutoModelForCausalLM, AutoTokenizer
+#             self.model = AutoModelForCausalLM.from_pretrained(
+#                 self.model_name,
+#                 torch_dtype=torch.float16
+#                 if "AWQ" in self.model_name else "auto",
+#                 attn_implementation="flash_attention_2"
+#                 if FLASH_VER == 2 else None,
+#                 device_map="cpu")
+#             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
-    def extend(self, prompt, system_prompt, seed=-1, *args, **kwargs):
-        self.model = self.model.to(self.device)
-        messages = [{
-            "role": "system",
-            "content": system_prompt
-        }, {
-            "role": "user",
-            "content": prompt
-        }]
-        text = self.tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True)
-        model_inputs = self.tokenizer([text],
-                                      return_tensors="pt").to(self.model.device)
+#     def extend(self, prompt, system_prompt, seed=-1, *args, **kwargs):
+#         self.model = self.model.to(self.device)
+#         messages = [{
+#             "role": "system",
+#             "content": system_prompt
+#         }, {
+#             "role": "user",
+#             "content": prompt
+#         }]
+#         text = self.tokenizer.apply_chat_template(
+#             messages, tokenize=False, add_generation_prompt=True)
+#         model_inputs = self.tokenizer([text],
+#                                       return_tensors="pt").to(self.model.device)
 
-        generated_ids = self.model.generate(**model_inputs, max_new_tokens=512)
-        generated_ids = [
-            output_ids[len(input_ids):] for input_ids, output_ids in zip(
-                model_inputs.input_ids, generated_ids)
-        ]
+#         generated_ids = self.model.generate(**model_inputs, max_new_tokens=512)
+#         generated_ids = [
+#             output_ids[len(input_ids):] for input_ids, output_ids in zip(
+#                 model_inputs.input_ids, generated_ids)
+#         ]
 
-        expanded_prompt = self.tokenizer.batch_decode(
-            generated_ids, skip_special_tokens=True)[0]
-        self.model = self.model.to("cpu")
-        return PromptOutput(
-            status=True,
-            prompt=expanded_prompt,
-            seed=seed,
-            system_prompt=system_prompt,
-            message=json.dumps({"content": expanded_prompt},
-                               ensure_ascii=False))
+#         expanded_prompt = self.tokenizer.batch_decode(
+#             generated_ids, skip_special_tokens=True)[0]
+#         self.model = self.model.to("cpu")
+#         return PromptOutput(
+#             status=True,
+#             prompt=expanded_prompt,
+#             seed=seed,
+#             system_prompt=system_prompt,
+#             message=json.dumps({"content": expanded_prompt},
+#                                ensure_ascii=False))
 
-    def extend_with_img(self,
-                        prompt,
-                        system_prompt,
-                        image: Union[Image.Image, str] = None,
-                        seed=-1,
-                        *args,
-                        **kwargs):
-        self.model = self.model.to(self.device)
-        messages = [{
-            'role': 'system',
-            'content': [{
-                "type": "text",
-                "text": system_prompt
-            }]
-        }, {
-            "role":
-                "user",
-            "content": [
-                {
-                    "type": "image",
-                    "image": image,
-                },
-                {
-                    "type": "text",
-                    "text": prompt
-                },
-            ],
-        }]
+#     def extend_with_img(self,
+#                         prompt,
+#                         system_prompt,
+#                         image: Union[Image.Image, str] = None,
+#                         seed=-1,
+#                         *args,
+#                         **kwargs):
+#         self.model = self.model.to(self.device)
+#         messages = [{
+#             'role': 'system',
+#             'content': [{
+#                 "type": "text",
+#                 "text": system_prompt
+#             }]
+#         }, {
+#             "role":
+#                 "user",
+#             "content": [
+#                 {
+#                     "type": "image",
+#                     "image": image,
+#                 },
+#                 {
+#                     "type": "text",
+#                     "text": prompt
+#                 },
+#             ],
+#         }]
 
-        # Preparation for inference
-        text = self.processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True)
-        image_inputs, video_inputs = self.process_vision_info(messages)
-        inputs = self.processor(
-            text=[text],
-            images=image_inputs,
-            videos=video_inputs,
-            padding=True,
-            return_tensors="pt",
-        )
-        inputs = inputs.to(self.device)
+#         # Preparation for inference
+#         text = self.processor.apply_chat_template(
+#             messages, tokenize=False, add_generation_prompt=True)
+#         image_inputs, video_inputs = self.process_vision_info(messages)
+#         inputs = self.processor(
+#             text=[text],
+#             images=image_inputs,
+#             videos=video_inputs,
+#             padding=True,
+#             return_tensors="pt",
+#         )
+#         inputs = inputs.to(self.device)
 
-        # Inference: Generation of the output
-        generated_ids = self.model.generate(**inputs, max_new_tokens=512)
-        generated_ids_trimmed = [
-            out_ids[len(in_ids):]
-            for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-        ]
-        expanded_prompt = self.processor.batch_decode(
-            generated_ids_trimmed,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=False)[0]
-        self.model = self.model.to("cpu")
-        return PromptOutput(
-            status=True,
-            prompt=expanded_prompt,
-            seed=seed,
-            system_prompt=system_prompt,
-            message=json.dumps({"content": expanded_prompt},
-                               ensure_ascii=False))
+#         # Inference: Generation of the output
+#         generated_ids = self.model.generate(**inputs, max_new_tokens=512)
+#         generated_ids_trimmed = [
+#             out_ids[len(in_ids):]
+#             for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+#         ]
+#         expanded_prompt = self.processor.batch_decode(
+#             generated_ids_trimmed,
+#             skip_special_tokens=True,
+#             clean_up_tokenization_spaces=False)[0]
+#         self.model = self.model.to("cpu")
+#         return PromptOutput(
+#             status=True,
+#             prompt=expanded_prompt,
+#             seed=seed,
+#             system_prompt=system_prompt,
+#             message=json.dumps({"content": expanded_prompt},
+#                                ensure_ascii=False))
 
 
 if __name__ == "__main__":

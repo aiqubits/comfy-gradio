@@ -11,11 +11,10 @@ import random
 import uuid
 
 import gradio as gr
-import numpy as np
+# import numpy as np
 import requests
-from prompt_extend import DashScopePromptExpander, QwenPromptExpander
+from prompt_extend import DashScopePromptExpander
 from PIL import Image
-import threading
 
 I2V_URL = "http://127.0.0.1:8188/"
 current_directory = os.getcwd()
@@ -26,10 +25,6 @@ warnings.filterwarnings('ignore')
 
 # Model
 sys.path.insert(0, os.path.sep.join(osp.realpath(__file__).split(os.path.sep)[:-2]))
-# import wan
-# from wan.configs import MAX_AREA_CONFIGS, WAN_CONFIGS
-# from wan.utils.prompt_extend import DashScopePromptExpander, QwenPromptExpander
-# from wan.utils.utils import cache_video
 
 # Global Var
 prompt_expander = None
@@ -459,7 +454,7 @@ if __name__ == '__main__':
         prompt_expander = DashScopePromptExpander(
             model_name=args.prompt_extend_model, is_vl=True)
     elif args.prompt_extend_method == "local_qwen":
-        prompt_expander = QwenPromptExpander(
+        prompt_expander = DashScopePromptExpander(
             model_name=args.prompt_extend_model, is_vl=True, device=0)
     else:
         raise NotImplementedError(
