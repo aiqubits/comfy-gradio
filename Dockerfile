@@ -12,7 +12,7 @@ RUN pip -V
 
 # Install pip requirements
 COPY requirements.txt .
-RUN python -m pip install -r requirements.txt
+RUN python -m pip install --no-cache-dir -r requirements.txt
 
 WORKDIR /app
 COPY i2v_14B_singleGPU.py /app
