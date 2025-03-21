@@ -6,6 +6,7 @@ socksio
 qwen_vl_utils
 loguru
 dashscope
+packaging
 flash_attn   
 # pip install --timeout=10000 "git+https://github.com/Dao-AILab/flash-attention.git"
 # pip install "flash-attention@git+https://github.com/Dao-AILab/flash-attention.git"
