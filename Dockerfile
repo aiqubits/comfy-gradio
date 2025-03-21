@@ -7,10 +7,11 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
 
-RUN python -V
-RUN pip -V
-
 # Install pip requirements
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
+RUN python -m pip install --no-cache-dir packaging
+RUN python -m pip install --timeout=1000 torch --extra-index-url https://download.pytorch.org/whl/cu126
+
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
