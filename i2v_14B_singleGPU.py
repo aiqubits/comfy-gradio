@@ -15,8 +15,10 @@ import gradio as gr
 import requests
 from prompt_extend import DashScopePromptExpander
 from PIL import Image
+from urllib.parse import quote
 
 I2V_URL = "http://127.0.0.1:8188/"
+GR_BASE_URL = "http://192.168.100.100:7860/"
 current_directory = os.getcwd()
 INPUT_DIR = os.path.join(current_directory, "input")
 OUTPUT_DIR = os.path.join(current_directory, "output")
@@ -284,9 +286,8 @@ def i2v_generation(img2vid_prompt, img2vid_image, resolution, dimension, duratio
 
         requests.post(os.path.join(I2V_URL, "prompt"), data=img2vid_prompt_data)
 
-        
         previous_video = get_latest_video(OUTPUT_DIR)
-        if "_cancel_" in  previous_video:
+        if "_cancel_" ==  previous_video:
             os.remove(os.path.join(OUTPUT_DIR, "_cancel_"))
             previous_video = get_latest_video(OUTPUT_DIR)
 
@@ -297,7 +298,7 @@ def i2v_generation(img2vid_prompt, img2vid_image, resolution, dimension, duratio
                 break
             time.sleep(5)
 
-        if "_cancel_" in latest_video:
+        if "_cancel_" == latest_video:
             os.remove(latest_video)
             return
         return latest_video
@@ -389,7 +390,7 @@ def gradio_interface():
         
         dimension.input(
             fn=None, inputs=[], outputs=[])
-
+        
         run_p_button.click(
             fn=prompt_enc,
             inputs=[img2vid_prompt, img2vid_image, tar_lang],
