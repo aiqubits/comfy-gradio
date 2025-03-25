@@ -312,10 +312,10 @@ def gradio_interface():
     with gr.Blocks(theme=gr.themes.Ocean()) as demo:
         gr.Markdown("""
                     <div style="text-align: center; font-size: 32px; font-weight: bold; margin-bottom: 20px;">
-                        办公智能化—AI视频生成大模型 (I2V-14B)
+                        办公智能化—AI视频生成云平台 (I2V-14B)
                     </div>
                     <div style="text-align: center; font-size: 16px; font-weight: normal; margin-bottom: 20px;">
-                        中媒矿建集团定制版
+                        中煤宣传部定制版
                     </div>
                     """)
 
