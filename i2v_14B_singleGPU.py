@@ -167,7 +167,7 @@ def i2v_generation(img2vid_prompt, img2vid_image, resolution, dimension, duratio
     
     else:
         crop_image(img2vid_image)
-        with open("gradio/i2v_workflow_api.json", "r") as file_json:
+        with open("i2v_workflow_api.json", "r") as file_json:
             prompt = json.load(file_json)        
         # 请求comfyui api生成  img2vid_prompt
         client_id = str(uuid.uuid4())
