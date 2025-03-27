@@ -26,7 +26,7 @@ current_directory = os.getcwd()
 INPUT_DIR = os.path.join(current_directory, "input")
 OUTPUT_DIR = os.path.join(current_directory, "output")
 # CANCEL_FILE = os.path.join(OUTPUT_DIR, "_cancel_")
-WORKFLOW_API = os.path.join(current_directory, "comfy-gradio", "i2v_workflow_api.json")
+WORKFLOW_API = os.path.join(current_directory, "i2v_workflow_api.json")
 
 
 warnings.filterwarnings('ignore')
