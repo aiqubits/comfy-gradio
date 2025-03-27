@@ -18,6 +18,7 @@ RUN python -m pip install --no-cache-dir -r requirements.txt
 WORKDIR /app
 COPY i2v_14B_singleGPU.py /app
 COPY prompt_extend.py /app
+COPY i2v_workflow_api.json /app
 
 VOLUME [ "/app/input", "/app/output"]
 

@@ -17,7 +17,10 @@ from prompt_extend import DashScopePromptExpander
 from PIL import Image
 from urllib.parse import quote
 
-I2V_URL = "http://127.0.0.1:8188/"
+i2v_host = os.getenv('I2V_HOST', 'localhost')
+i2v_port = os.getenv('I2V_PORT', '8188')
+I2V_URL = f'{i2v_host}:{i2v_port}'
+print(f"I2V_URL: {I2V_URL}")
 GR_BASE_URL = "http://192.168.100.100:7860/"
 current_directory = os.getcwd()
 INPUT_DIR = os.path.join(current_directory, "input")
@@ -190,8 +193,7 @@ def i2v_generation(img2vid_prompt, img2vid_image, resolution, dimension, duratio
     global unfreeze
     unfreeze = False
     print(f"i2v_generation unfreeze: {unfreeze}")
-    print("done", flush=True)
-    print(f"{img2vid_prompt},{resolution},{duration},{index},{n_prompt}")
+    print(f"{img2vid_prompt},{resolution},{duration},{dimension},{index},{n_prompt}")
     if resolution not in ["480P", "720P"]:
         print(
             'Please specify the resolution'
@@ -408,7 +410,7 @@ def gradio_interface():
                         choices=["CH", "EN"],
                         label="提示词的语言",
                         value="CH")
-                    run_p_button = gr.Button(value="提示词增强")
+                    run_p_button = gr.Button(value="优化提示词")
 
                     with gr.Accordion("高级选项", open=False):
                         with gr.Row():

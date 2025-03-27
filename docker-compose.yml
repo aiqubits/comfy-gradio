@@ -1,8 +1,35 @@
-version: '3.4'
-
 services:
-  comfygradio:
-    image: comfygradio
-    build:
-      context: .
-      dockerfile: ./Dockerfile
+  comfyui:
+    image: ghcr.io/aiqubits/comfyui:v0.3.26
+    volumes:
+      - input-volumes:/app/input
+      - output-volumes:/app/output
+      - /opt/py/project/ComfyUI/models:/app/models/
+    ports:
+      - "127.0.0.1:8188:8188"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8188/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  comfy-gradio:
+    image: ghcr.io/aiqubits/comfy-gradio:latest
+    # build:
+    #   context: .
+    #   dockerfile: ./Dockerfile
+    environment:
+      DASH_API_KEY: ${DASH_API_KEY}
+      I2V_HOST: comfyui
+      I2V_PORT: 8188
+    volumes:
+      - input-volumes:/app/input
+      - output-volumes:/app/output
+    ports:
+      - "7860:7860"
+    depends_on:
+      comfyui:
+        condition: service_healthy
+    command: ["--prompt_extend_method", "dashscope"]
+volumes:
+  input-volumes:
+  output-volumes:
