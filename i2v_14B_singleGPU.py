@@ -22,6 +22,9 @@ GR_BASE_URL = "http://192.168.100.100:7860/"
 current_directory = os.getcwd()
 INPUT_DIR = os.path.join(current_directory, "input")
 OUTPUT_DIR = os.path.join(current_directory, "output")
+# CANCEL_FILE = os.path.join(OUTPUT_DIR, "_cancel_")
+WORKFLOW_API = os.path.join(current_directory, "comfy-gradio", "i2v_workflow_api.json")
+
 
 warnings.filterwarnings('ignore')
 
@@ -32,14 +35,9 @@ sys.path.insert(0, os.path.sep.join(osp.realpath(__file__).split(os.path.sep)[:-
 prompt_expander = None
 wan_i2v_480P = None
 wan_i2v_720P = None
-interrupt_flag = False
 
-def get_latest_video(folder):
-    files = os.listdir(folder)
-    video_files = [f for f in files if f.lower().endswith(('.webp', '.mp4', '.mov', '_cancel_'))]
-    video_files.sort(key=lambda x: os.path.getmtime(os.path.join(folder, x)))
-    latest_video = os.path.join(folder, video_files[-1]) if video_files else None
-    return latest_video
+interrupt_flag = False
+unfreeze = True
 
 def start_queue(prompt_workflow):
     p = {"prompt": prompt_workflow}
@@ -110,6 +108,9 @@ def load_model(value):
 
 
 def prompt_enc(prompt, img, tar_lang):
+    if (not unfreeze):
+        print("prompt_enc no action")
+        return prompt
     print('prompt extend...')
     # Image.Image
     if img is None:
@@ -149,7 +150,47 @@ def crop_image(input_image):
 
     resized_image.save(os.path.join(INPUT_DIR, "tmp_input.jpg"))
 
+def get_latest_video():
+    files = os.listdir(OUTPUT_DIR)
+    video_list = [f for f in files if f.lower().endswith(('.webp', '.mp4', '.mov', '_cancel_'))]
+    video_list.sort(key=lambda x: os.path.getmtime(os.path.join(OUTPUT_DIR, x)))
+    latest_video = os.path.join(OUTPUT_DIR, video_list[-1]) if video_list else None
+    print(f"latest_video: {latest_video}")
+    return [latest_video]
+
+def get_video_list():
+    files = os.listdir(OUTPUT_DIR)
+    video_list = [f for f in files if f.lower().endswith(('.mp4', '.mov', '.webp'))]
+    video_list.sort(key=lambda x: os.path.getmtime(os.path.join(OUTPUT_DIR, x)), reverse=True)
+    video_list = video_list[:20]
+    new_video_list = []
+    for video in video_list:
+        current_video = os.path.join(OUTPUT_DIR, video) if video else None
+        new_video_list.append(current_video)
+
+    print(f"video_list: {new_video_list}")
+    return new_video_list
+
+def get_video_list_wrapped():
+    if (not unfreeze):
+        print("get_video_list_wrapped no action")
+        return get_latest_video()
+    video_list = get_video_list()
+    return video_list
+
+def remove_video_list():
+    if (not unfreeze):
+        print("remove_video_list no action")
+        return
+    video_list = get_video_list()
+    for video in video_list:
+        os.remove(os.path.join(OUTPUT_DIR, video))
+
 def i2v_generation(img2vid_prompt, img2vid_image, resolution, dimension, duration, index, n_prompt):
+    global unfreeze
+    unfreeze = False
+    print(f"i2v_generation unfreeze: {unfreeze}")
+    print("done", flush=True)
     print(f"{img2vid_prompt},{resolution},{duration},{index},{n_prompt}")
     if resolution not in ["480P", "720P"]:
         print(
@@ -169,7 +210,7 @@ def i2v_generation(img2vid_prompt, img2vid_image, resolution, dimension, duratio
     
     else:
         crop_image(img2vid_image)
-        with open("i2v_workflow_api.json", "r") as file_json:
+        with open(WORKFLOW_API, "r") as file_json:
             prompt = json.load(file_json)        
         # 请求comfyui api生成  img2vid_prompt
         client_id = str(uuid.uuid4())
@@ -286,31 +327,53 @@ def i2v_generation(img2vid_prompt, img2vid_image, resolution, dimension, duratio
 
         requests.post(os.path.join(I2V_URL, "prompt"), data=img2vid_prompt_data)
 
-        previous_video = get_latest_video(OUTPUT_DIR)
-        if "_cancel_" ==  previous_video:
-            os.remove(os.path.join(OUTPUT_DIR, "_cancel_"))
-            previous_video = get_latest_video(OUTPUT_DIR)
+        previous_video = get_latest_video()
+        print(f"previous_video: {previous_video}")
+        # if (previous_video is not None) and ("_cancel_" in  previous_video):
+        #     # os.remove(CANCEL_FILE)
+        #     print(f"_cancel_ previous_video: {get_latest_video()}")
 
         while True:
-            latest_video = get_latest_video(OUTPUT_DIR)
-            
+            latest_video = get_latest_video()
+            print(f"while True latest_video: {latest_video}")
+            print(f"while True previous_video: {previous_video}")
+            global interrupt_flag
             if interrupt_flag or (latest_video != previous_video):
+                print(f"while True break flag: {interrupt_flag}")
+                print("Generation over")
                 break
             time.sleep(5)
 
-        if "_cancel_" == latest_video:
-            os.remove(latest_video)
-            return
+        # if (latest_video is not None) and ("_cancel_" in latest_video):
+        #     # os.remove(CANCEL_FILE)
+        #     print("Generation canceled")
+        #     return
+        
+        unfreeze = True
+        print(f"unfreeze: {unfreeze}")
+        print("i2v_generation done", flush=True)
         return latest_video
 
 def interrupt_i2v_generation():
-    with open(os.path.join(OUTPUT_DIR, "_cancel_"), 'w') as file:
-        pass  # Do nothing, just create the file    
+    # with open(CANCEL_FILE, 'w') as file:
+        #pass  # Do nothing, just create the file    
     requests.post(os.path.join(I2V_URL, "interrupt"))
+    global interrupt_flag
+    interrupt_flag = True
+    print("interrupt_i2v_generation flag: ", interrupt_flag)
+    print("interrupt_i2v_generation done", flush=True)
+
+def get_task_number():
+    info_json = requests.get(os.path.join(I2V_URL, "prompt"))
+    info_json = json.loads(info_json.text)
+    print(f"info_json: {info_json}")
+    task_number = info_json["exec_info"]["queue_remaining"]
+    print(f"task_number: {task_number}")
+    return task_number
 
 # Interface
 def gradio_interface():
-    with gr.Blocks(theme=gr.themes.Ocean()) as demo:
+    with gr.Blocks(theme=gr.themes.Monochrome()) as demo:
         gr.Markdown("""
                     <div style="text-align: center; font-size: 32px; font-weight: bold; margin-bottom: 20px;">
                         办公智能化—AI视频生成云平台 (I2V-14B)
@@ -319,72 +382,81 @@ def gradio_interface():
                         中煤宣传部定制版
                     </div>
                     """)
-
-        with gr.Row():
-            with gr.Column():
-                with gr.Row():
-                    resolution = gr.Dropdown(
-                        label='分辨率',
-                        choices=['480P', '720P'],
-                        value='480P')
-                    dimension = gr.Dropdown(
-                        label='尺寸',
-                        choices=['512*512', '1280*720', '720*1280', '1080*1080'],
-                        value='512*512')
-
-                img2vid_image = gr.Image(
-                    type="pil",
-                    label="上传输入图像",
-                    elem_id="image_upload",
-                )
-                img2vid_prompt = gr.Textbox(
-                    label="提示词",
-                    placeholder="描述你想要生成的视频内容",
-                )
-                tar_lang = gr.Radio(
-                    choices=["CH", "EN"],
-                    label="提示词的语言",
-                    value="CH")
-                run_p_button = gr.Button(value="提示词增强")
-
-                with gr.Accordion("高级选项", open=False):
+        with gr.Tab("首页"):
+            with gr.Row(variant="compact", show_progress=True):
+                with gr.Column():
                     with gr.Row():
-                        duration = gr.Slider(
-                            label="视频时长/秒",
-                            minimum=1,
-                            maximum=10000,
-                            value=2,
-                            step=1)
-                        index = gr.Slider(
-                            label="视频编号",
-                            minimum=-1,
-                            maximum=2147483647,
-                            step=1,
-                            value=-1)
-                    # with gr.Row():
-                    #     shift_scale = gr.Slider(
-                    #         label="Shift scale",
-                    #         minimum=0,
-                    #         maximum=10,
-                    #         value=5.0,
-                    #         step=1)
-                    #     guide_scale = gr.Slider(
-                    #         label="Guide scale",
-                    #         minimum=0,
-                    #         maximum=20,
-                    #         value=5.0,
-                    #         step=1)
-                    n_prompt = gr.Textbox(
-                        label="负向提示词",
-                        placeholder="描述你要添加的负面提示词"
+                        resolution = gr.Dropdown(
+                            label='分辨率',
+                            choices=['480P', '720P'],
+                            value='480P')
+                        dimension = gr.Dropdown(
+                            label='尺寸',
+                            choices=['512*512', '1280*720', '720*1280', '1080*1080'],
+                            value='512*512')
+
+                    img2vid_image = gr.Image(
+                        type="pil",
+                        label="上传输入图像",
+                        elem_id="image_upload",
                     )
+                    img2vid_prompt = gr.Textbox(
+                        label="提示词",
+                        placeholder="描述你想要生成的视频内容",
+                    )
+                    tar_lang = gr.Radio(
+                        choices=["CH", "EN"],
+                        label="提示词的语言",
+                        value="CH")
+                    run_p_button = gr.Button(value="提示词增强")
 
-                run_i2v_button = gr.Button("生成视频")
+                    with gr.Accordion("高级选项", open=False):
+                        with gr.Row():
+                            duration = gr.Slider(
+                                label="视频时长/秒",
+                                minimum=1,
+                                maximum=10000,
+                                value=2,
+                                step=1)
+                            index = gr.Slider(
+                                label="视频编号",
+                                minimum=-1,
+                                maximum=2147483647,
+                                step=1,
+                                value=-1)
+                        # with gr.Row():
+                        #     shift_scale = gr.Slider(
+                        #         label="Shift scale",
+                        #         minimum=0,
+                        #         maximum=10,
+                        #         value=5.0,
+                        #         step=1)
+                        #     guide_scale = gr.Slider(
+                        #         label="Guide scale",
+                        #         minimum=0,
+                        #         maximum=20,
+                        #         value=5.0,
+                        #         step=1)
+                        n_prompt = gr.Textbox(
+                            label="负向提示词",
+                            placeholder="描述你要添加的负向提示词"
+                        )
 
-            with gr.Column():
-                result_gallery = gr.Image(type="filepath", label='生成的视频', height=800)
-                run_interrupt = gr.Button("取消生成任务")
+                    run_i2v_button = gr.Button("生成视频")
+                with gr.Column():
+                    result_gallery = gr.Gallery(type="filepath", label='生成的视频', height=700, rows=2, columns=5)
+                    check_latest_video = gr.Button("获取云端最近的20个视频")
 
+                    delete_video_list = gr.Button("删除云端最近的20个视频(危险！删除后无法恢复)")
+        with gr.Tab("任务管理"):
+            global unfreeze
+            with gr.Row(variant="compact", show_progress=True, visible=unfreeze):
+                with gr.Column():
+                    check_current_task = gr.Button("查看正在进行的视频生成任务个数")
+                    run_interrupt = gr.Button("取消正在进行的视频生成任务")
+                with gr.Column():
+                    task_status = gr.Textbox(label="正在进行的视频生成任务个数")
+                
         resolution.input(
             fn=None, inputs=[], outputs=[])
         
@@ -407,7 +479,27 @@ def gradio_interface():
             outputs=result_gallery,
             show_progress="full",
         )
-        # last_file_name = get_latest_video(OUTPUT_DIR)
+        
+        check_latest_video.click(
+            fn=get_video_list_wrapped,
+            inputs=[],
+            outputs=result_gallery,
+        )
+
+        check_current_task.click(
+            fn=get_task_number,
+            inputs=[],
+            outputs=[task_status],
+            show_progress="full",
+        )
+
+        delete_video_list.click(
+            fn=remove_video_list,
+            inputs=[],
+            outputs=[],
+            show_progress="full",
+        )
+        
         run_interrupt.click(
             fn=interrupt_i2v_generation,
             inputs=[],
@@ -460,6 +552,10 @@ if __name__ == '__main__':
     else:
         raise NotImplementedError(
             f"Unsupport prompt_extend_method: {args.prompt_extend_method}")
+
+    # if CANCEL_FILE in os.listdir(OUTPUT_DIR):
+    #     os.remove(CANCEL_FILE)
+    
     print("done", flush=True)
     demo = gradio_interface()
     demo.launch(server_name="0.0.0.0")

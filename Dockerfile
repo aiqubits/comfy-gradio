@@ -30,4 +30,5 @@ EXPOSE 7860
 
 # During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
 ENTRYPOINT ["python", "i2v_14B_singleGPU.py"]
-#CMD ["DASH_API_KEY=sk-xxxxxxx", "python", "i2v_14B_singleGPU.py", "--prompt_extend_method", "dashscope"]
+# CMD ["DASH_API_KEY=sk-xxxxxxx", "python", "i2v_14B_singleGPU.py", "--prompt_extend_method", "dashscope"]
+# nvidia-smi |  grep -E "python" | awk '{print $5}' | xargs -I{} kill -9 {}
